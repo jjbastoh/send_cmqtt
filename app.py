@@ -1,4 +1,9 @@
-# ===== DISEÑO CYBER VAULT: SOLO INTERFAZ VISUAL =====
+import paho.mqtt.client as paho
+import time
+import streamlit as st
+import json
+import platform
+
 st.set_page_config(page_title="Cyber Vault | MQTT", page_icon="🔐", layout="wide")
 
 st.markdown("""
@@ -48,10 +53,8 @@ h1, h2, h3, p, label {
     border-radius: 50%;
     background: radial-gradient(circle, #263e56 0%, #142438 55%, #0a1320 72%);
     border: 8px solid #496781;
-    box-shadow: 0 0 0 7px #101e30,
-                0 0 0 9px #29465e,
-                0 0 40px #00e6aa20,
-                inset 0 0 25px #000b17;
+    box-shadow: 0 0 0 7px #101e30, 0 0 0 9px #29465e,
+                0 0 40px #00e6aa20, inset 0 0 25px #000b17;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -75,7 +78,6 @@ h1, h2, h3, p, label {
     align-items: center;
     justify-content: center;
     position: relative;
-    animation: vault-spin 12s linear infinite;
     box-shadow: inset 0 0 20px #0008, 0 0 18px #0005;
 }
 .vault-wheel::before {
@@ -143,9 +145,6 @@ div.stButton > button:hover {
     color: #48f5c1;
     box-shadow: 0 0 15px #48f5c125;
 }
-div[data-testid="stSlider"] [data-baseweb="slider"] {
-    margin-top: 12px;
-}
 .panel {
     background: linear-gradient(145deg, #101e30, #0b1422);
     border: 1px solid #253d55;
@@ -154,7 +153,7 @@ div[data-testid="stSlider"] [data-baseweb="slider"] {
     margin-bottom: 12px;
 }
 @media (prefers-reduced-motion: reduce) {
-    .vault-wheel, .vault::before { animation: none; }
+    .vault::before { animation: none; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -166,31 +165,61 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+st.write("Versión de Python:", platform.python_version())
 
+values = 0.0
+act1 = "OFF"
 
-python
-values = st.slider('Selecciona el rango de valores',0.0, 100.0)
-st.write('Values:', values)
-Y sustitúyelas únicamente por este bloque. Conserva el if st.button('Enviar valor analógico') que viene después:
+def on_publish(client, userdata, result):
+    print("el dato ha sido publicado \n")
+    pass
 
-python
+def on_message(client, userdata, message):
+    global message_received
+    time.sleep(2)
+    message_received = str(message.payload.decode("utf-8"))
+    st.write(message_received)
 
-# ===== CONTROL VISUAL DE LA BÓVEDA =====
+broker = "157.230.214.127"
+port = 1883
+client1 = paho.Client("STREAMLIT_APP")
+client1.on_message = on_message
+
+st.title("MQTT Control")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🟢 ON", use_container_width=True):
+        act1 = "ON"
+        client1 = paho.Client("STREAMLIT_APP")
+        client1.on_publish = on_publish
+        client1.connect(broker, port)
+        message = json.dumps({"Act1": act1})
+        ret = client1.publish("streamlit/led", message)
+
+with col2:
+    if st.button("🔴 OFF", use_container_width=True):
+        act1 = "OFF"
+        client1 = paho.Client("STREAMLIT_APP")
+        client1.on_publish = on_publish
+        client1.connect(broker, port)
+        message = json.dumps({"Act1": act1})
+        ret = client1.publish("streamlit/led", message)
+
 st.markdown('<div class="panel">', unsafe_allow_html=True)
 st.subheader("🔐 Control de acceso")
 
 values = st.slider(
-    'Gira el mecanismo de la bóveda',
+    "Gira el mecanismo de la bóveda",
     min_value=0.0,
     max_value=100.0,
     value=0.0,
     key="vault_slider"
 )
 
-# Animación visual: el dial gira según el slider
 rotation = int(values * 3.6)
 is_unlocked = values >= 90
-
 vault_class = "unlocked" if is_unlocked else "locked"
 vault_text = "DESBLOQUEADA" if is_unlocked else "BLOQUEADA"
 vault_icon = "🔓" if is_unlocked else "🔒"
@@ -198,7 +227,7 @@ vault_icon = "🔓" if is_unlocked else "🔒"
 st.markdown(f"""
 <div class="vault-wrap">
   <div class="vault">
-    <div class="vault-wheel" style="animation:none; transform:rotate({rotation}deg);">
+    <div class="vault-wheel" style="transform:rotate({rotation}deg);">
       <div class="vault-center">{vault_icon}</div>
     </div>
   </div>
@@ -213,3 +242,10 @@ st.markdown(f"""
 st.progress(int(values), text=f"Nivel de apertura: {values:.0f}%")
 st.markdown('</div>', unsafe_allow_html=True)
 
+if st.button("📡 Enviar valor analógico", use_container_width=True):
+    client1 = paho.Client("STREAMLIT_APP")
+    client1.on_publish = on_publish
+    client1.connect(broker, port)
+    message = json.dumps({"Analog": float(values)})
+    ret = client1.publish("streamlit/servo", message)
+    client1.disconnect()
