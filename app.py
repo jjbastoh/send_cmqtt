@@ -166,9 +166,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ===== FIN DEL DISEÑO VISUAL =====
-Añadir la bóveda a la zona del slider
-Ahora, busca estas líneas originales de tu código:
+
 
 python
 values = st.slider('Selecciona el rango de valores',0.0, 100.0)
